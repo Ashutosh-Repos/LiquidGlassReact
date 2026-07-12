@@ -1,5 +1,41 @@
+# Dependency directories
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+.tsup/
+**/.tsup/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# Editor & System Files
 .DS_Store
 *.DS_Store
 */.DS_Store
-**/.DS_Store 
+**/.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing & Cache
+.npm/
+.eslintcache
+.parcel-cache/
+.cache/
+.vite/
+.temp/
+
+# Graphics metadata
 *.xmp
