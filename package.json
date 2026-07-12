@@ -61,7 +61,7 @@
   "homepage": "https://liquidgl.naughtyduk.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ashutosh-Repos/LiquidGlass"
+    "url": "https://github.com/Ashutosh-Repos/LiquidGlassReact"
   },
   "publishConfig": {
     "access": "public"
