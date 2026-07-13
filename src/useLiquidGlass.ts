@@ -114,13 +114,13 @@ const convertModernColorToRGB = (colorStr: string): string => {
   return processed;
 };
 
-/** Temporarily polyfills window.getComputedStyle to translate modern oklch/oklab colors. */
-function applyComputedStylePolyfill(): () => void {
-  if (typeof window === 'undefined') return () => {};
-  
-  const originalGetComputedStyle = window.getComputedStyle;
-  
-  window.getComputedStyle = function (el, pseudo) {
+interface WrappedWindow extends Window {
+  __getComputedStyleWrapped__?: boolean;
+}
+
+const wrapWindowGetComputedStyle = (win: WrappedWindow) => {
+  const originalGetComputedStyle = win.getComputedStyle;
+  win.getComputedStyle = function (el, pseudo) {
     const style = originalGetComputedStyle.call(this, el, pseudo);
     
     return new Proxy(style, {
@@ -147,9 +147,67 @@ function applyComputedStylePolyfill(): () => void {
       }
     });
   };
+};
+
+/** Temporarily polyfills window.getComputedStyle to translate modern oklch/oklab colors. */
+function applyComputedStylePolyfill(): () => void {
+  if (typeof window === 'undefined') return () => {};
+  
+  // 1. Wrap main window's getComputedStyle
+  const originalMainGetComputedStyle = window.getComputedStyle;
+  wrapWindowGetComputedStyle(window as WrappedWindow);
+  
+  // 2. Wrap HTMLIFrameElement.prototype.contentWindow & contentDocument to polyfill cloned iframes
+  const iframeProto = HTMLIFrameElement.prototype;
+  const winDescriptor = Object.getOwnPropertyDescriptor(iframeProto, 'contentWindow');
+  const originalContentWindowGetter = winDescriptor?.get;
+  
+  if (originalContentWindowGetter) {
+    Object.defineProperty(iframeProto, 'contentWindow', {
+      get() {
+        const win = originalContentWindowGetter.call(this) as WrappedWindow | null;
+        if (win && !win.__getComputedStyleWrapped__) {
+          win.__getComputedStyleWrapped__ = true;
+          wrapWindowGetComputedStyle(win);
+        }
+        return win;
+      },
+      configurable: true,
+    });
+  }
+
+  const docDescriptor = Object.getOwnPropertyDescriptor(iframeProto, 'contentDocument');
+  const originalContentDocumentGetter = docDescriptor?.get;
+  
+  if (originalContentDocumentGetter) {
+    Object.defineProperty(iframeProto, 'contentDocument', {
+      get() {
+        const doc = originalContentDocumentGetter.call(this);
+        if (doc && doc.defaultView) {
+          const win = doc.defaultView as WrappedWindow;
+          if (!win.__getComputedStyleWrapped__) {
+            win.__getComputedStyleWrapped__ = true;
+            wrapWindowGetComputedStyle(win);
+          }
+        }
+        return doc;
+      },
+      configurable: true,
+    });
+  }
   
   return () => {
-    window.getComputedStyle = originalGetComputedStyle;
+    // Restore main window's getComputedStyle
+    window.getComputedStyle = originalMainGetComputedStyle;
+    
+    // Restore HTMLIFrameElement.prototype.contentWindow descriptor
+    if (winDescriptor) {
+      Object.defineProperty(iframeProto, 'contentWindow', winDescriptor);
+    }
+    // Restore HTMLIFrameElement.prototype.contentDocument descriptor
+    if (docDescriptor) {
+      Object.defineProperty(iframeProto, 'contentDocument', docDescriptor);
+    }
   };
 }
 

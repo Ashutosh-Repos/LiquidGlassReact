@@ -219,11 +219,9 @@ var convertModernColorToRGB = (colorStr) => {
   processed = processed.replace(labRegex, "rgba(0, 0, 0, 0)");
   return processed;
 };
-function applyComputedStylePolyfill() {
-  if (typeof window === "undefined") return () => {
-  };
-  const originalGetComputedStyle = window.getComputedStyle;
-  window.getComputedStyle = function(el, pseudo) {
+var wrapWindowGetComputedStyle = (win) => {
+  const originalGetComputedStyle = win.getComputedStyle;
+  win.getComputedStyle = function(el, pseudo) {
     const style = originalGetComputedStyle.call(this, el, pseudo);
     return new Proxy(style, {
       get(target, prop) {
@@ -247,8 +245,54 @@ function applyComputedStylePolyfill() {
       }
     });
   };
+};
+function applyComputedStylePolyfill() {
+  if (typeof window === "undefined") return () => {
+  };
+  const originalMainGetComputedStyle = window.getComputedStyle;
+  wrapWindowGetComputedStyle(window);
+  const iframeProto = HTMLIFrameElement.prototype;
+  const winDescriptor = Object.getOwnPropertyDescriptor(iframeProto, "contentWindow");
+  const originalContentWindowGetter = winDescriptor?.get;
+  if (originalContentWindowGetter) {
+    Object.defineProperty(iframeProto, "contentWindow", {
+      get() {
+        const win = originalContentWindowGetter.call(this);
+        if (win && !win.__getComputedStyleWrapped__) {
+          win.__getComputedStyleWrapped__ = true;
+          wrapWindowGetComputedStyle(win);
+        }
+        return win;
+      },
+      configurable: true
+    });
+  }
+  const docDescriptor = Object.getOwnPropertyDescriptor(iframeProto, "contentDocument");
+  const originalContentDocumentGetter = docDescriptor?.get;
+  if (originalContentDocumentGetter) {
+    Object.defineProperty(iframeProto, "contentDocument", {
+      get() {
+        const doc = originalContentDocumentGetter.call(this);
+        if (doc && doc.defaultView) {
+          const win = doc.defaultView;
+          if (!win.__getComputedStyleWrapped__) {
+            win.__getComputedStyleWrapped__ = true;
+            wrapWindowGetComputedStyle(win);
+          }
+        }
+        return doc;
+      },
+      configurable: true
+    });
+  }
   return () => {
-    window.getComputedStyle = originalGetComputedStyle;
+    window.getComputedStyle = originalMainGetComputedStyle;
+    if (winDescriptor) {
+      Object.defineProperty(iframeProto, "contentWindow", winDescriptor);
+    }
+    if (docDescriptor) {
+      Object.defineProperty(iframeProto, "contentDocument", docDescriptor);
+    }
   };
 }
 function resolveOptions(options) {
