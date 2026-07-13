@@ -321,17 +321,23 @@ function useLiquidGlass(options = {}) {
       const liquidGL = module.default;
       const resolved = resolveOptions(optionsRef.current);
       try {
-        const result = liquidGL({
-          target: `[data-liquidgl-id="${instanceId}"]`,
-          snapshot: config?.snapshot ?? DEFAULT_CONFIG.snapshot,
-          resolution: config?.resolution ?? DEFAULT_CONFIG.resolution,
-          ...resolved,
-          on: {
-            init(instance) {
-              optionsRef.current.onReady?.(instance);
+        const restoreInit = applyComputedStylePolyfill();
+        let result;
+        try {
+          result = liquidGL({
+            target: `[data-liquidgl-id="${instanceId}"]`,
+            snapshot: config?.snapshot ?? DEFAULT_CONFIG.snapshot,
+            resolution: config?.resolution ?? DEFAULT_CONFIG.resolution,
+            ...resolved,
+            on: {
+              init(instance) {
+                optionsRef.current.onReady?.(instance);
+              }
             }
-          }
-        });
+          });
+        } finally {
+          restoreInit();
+        }
         if (cancelled) {
           if (result) {
             const lensToClean = Array.isArray(result) ? result[0] : result;

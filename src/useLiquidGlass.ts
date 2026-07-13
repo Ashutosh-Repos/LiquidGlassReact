@@ -292,18 +292,24 @@ export function useLiquidGlass<T extends HTMLElement = HTMLDivElement>(
         const resolved = resolveOptions(optionsRef.current);
 
         try {
-          const result = liquidGL({
-            target: `[data-liquidgl-id="${instanceId}"]`,
-            snapshot: config?.snapshot ?? DEFAULT_CONFIG.snapshot,
-            resolution: config?.resolution ?? DEFAULT_CONFIG.resolution,
-            ...resolved,
-            on: {
-              init(instance: unknown) {
-                // Fire user callback with the latest onReady ref
-                optionsRef.current.onReady?.(instance as LiquidGlassLensInternal);
+          const restoreInit = applyComputedStylePolyfill();
+          let result;
+          try {
+            result = liquidGL({
+              target: `[data-liquidgl-id="${instanceId}"]`,
+              snapshot: config?.snapshot ?? DEFAULT_CONFIG.snapshot,
+              resolution: config?.resolution ?? DEFAULT_CONFIG.resolution,
+              ...resolved,
+              on: {
+                init(instance: unknown) {
+                  // Fire user callback with the latest onReady ref
+                  optionsRef.current.onReady?.(instance as LiquidGlassLensInternal);
+                },
               },
-            },
-          });
+            });
+          } finally {
+            restoreInit();
+          }
 
           if (cancelled) {
             // Component unmounted while the import was in-flight
