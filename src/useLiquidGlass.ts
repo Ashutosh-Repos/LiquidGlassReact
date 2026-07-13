@@ -278,6 +278,27 @@ function syncLensOptions(
  *  Hook
  * ========================================================================== */
 
+let activePolyfillCount = 0;
+let restorePolyfillGlobal: (() => void) | null = null;
+
+function enablePolyfill() {
+  if (activePolyfillCount === 0) {
+    restorePolyfillGlobal = applyComputedStylePolyfill();
+  }
+  activePolyfillCount++;
+}
+
+function disablePolyfill() {
+  activePolyfillCount--;
+  if (activePolyfillCount <= 0) {
+    activePolyfillCount = 0;
+    if (restorePolyfillGlobal) {
+      restorePolyfillGlobal();
+      restorePolyfillGlobal = null;
+    }
+  }
+}
+
 /**
  * Hook that applies the liquidGL glass effect to a DOM element.
  *
@@ -322,6 +343,9 @@ export function useLiquidGlass<T extends HTMLElement = HTMLDivElement>(
     const element = elementRef.current;
     if (!element || typeof window === 'undefined') return;
 
+    // Enable the getComputedStyle polyfill globally while the component is active.
+    enablePolyfill();
+
     // Tag the element so liquidGL can find it via CSS selector
     element.setAttribute('data-liquidgl-id', instanceId);
 
@@ -345,24 +369,18 @@ export function useLiquidGlass<T extends HTMLElement = HTMLDivElement>(
         const resolved = resolveOptions(optionsRef.current);
 
         try {
-          const restoreInit = applyComputedStylePolyfill();
-          let result;
-          try {
-            result = liquidGL({
-              target: `[data-liquidgl-id="${instanceId}"]`,
-              snapshot: config?.snapshot ?? DEFAULT_CONFIG.snapshot,
-              resolution: config?.resolution ?? DEFAULT_CONFIG.resolution,
-              ...resolved,
-              on: {
-                init(instance: unknown) {
-                  // Fire user callback with the latest onReady ref
-                  optionsRef.current.onReady?.(instance as LiquidGlassLensInternal);
-                },
+          const result = liquidGL({
+            target: `[data-liquidgl-id="${instanceId}"]`,
+            snapshot: config?.snapshot ?? DEFAULT_CONFIG.snapshot,
+            resolution: config?.resolution ?? DEFAULT_CONFIG.resolution,
+            ...resolved,
+            on: {
+              init(instance: unknown) {
+                // Fire user callback with the latest onReady ref
+                optionsRef.current.onReady?.(instance as LiquidGlassLensInternal);
               },
-            });
-          } finally {
-            restoreInit();
-          }
+            },
+          });
 
           if (cancelled) {
             // Component unmounted while the import was in-flight
@@ -380,21 +398,6 @@ export function useLiquidGlass<T extends HTMLElement = HTMLDivElement>(
             Array.isArray(result) ? result[0] : result
           ) as unknown as LiquidGlassLensInternal;
           lensRef.current = lens;
-
-          // Temporarily wrap the snapshot capture function to polyfill getComputedStyle
-          const renderer = lens.renderer;
-          if (renderer && !(renderer as any)._captureSnapshotWrapped) {
-            (renderer as any)._captureSnapshotWrapped = true;
-            const originalCapture = renderer.captureSnapshot;
-            renderer.captureSnapshot = async function (this: any) {
-              const restore = applyComputedStylePolyfill();
-              try {
-                return await originalCapture.call(this);
-              } finally {
-                restore();
-              }
-            };
-          }
         } catch (err) {
           console.error('liquidgl-react: Failed to initialize glass effect.', err);
         }
@@ -406,6 +409,7 @@ export function useLiquidGlass<T extends HTMLElement = HTMLDivElement>(
     // Cleanup on unmount (or re-run in Strict Mode)
     return () => {
       cancelled = true;
+      disablePolyfill();
       if (lensRef.current) {
         destroyLens(lensRef.current);
         destroyRendererIfEmpty();

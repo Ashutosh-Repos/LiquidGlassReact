@@ -332,6 +332,24 @@ function syncLensOptions(lens, resolved) {
     lens.setTilt(resolved.tilt);
   }
 }
+var activePolyfillCount = 0;
+var restorePolyfillGlobal = null;
+function enablePolyfill() {
+  if (activePolyfillCount === 0) {
+    restorePolyfillGlobal = applyComputedStylePolyfill();
+  }
+  activePolyfillCount++;
+}
+function disablePolyfill() {
+  activePolyfillCount--;
+  if (activePolyfillCount <= 0) {
+    activePolyfillCount = 0;
+    if (restorePolyfillGlobal) {
+      restorePolyfillGlobal();
+      restorePolyfillGlobal = null;
+    }
+  }
+}
 function useLiquidGlass(options = {}) {
   const elementRef = useRef(null);
   const lensRef = useRef(null);
@@ -346,6 +364,7 @@ function useLiquidGlass(options = {}) {
   useEffect(() => {
     const element = elementRef.current;
     if (!element || typeof window === "undefined") return;
+    enablePolyfill();
     element.setAttribute("data-liquidgl-id", instanceId);
     const computedStyle = window.getComputedStyle(element);
     const originalZIndex = element.style.zIndex;
@@ -359,23 +378,17 @@ function useLiquidGlass(options = {}) {
       const liquidGL = module.default;
       const resolved = resolveOptions(optionsRef.current);
       try {
-        const restoreInit = applyComputedStylePolyfill();
-        let result;
-        try {
-          result = liquidGL({
-            target: `[data-liquidgl-id="${instanceId}"]`,
-            snapshot: config?.snapshot ?? DEFAULT_CONFIG.snapshot,
-            resolution: config?.resolution ?? DEFAULT_CONFIG.resolution,
-            ...resolved,
-            on: {
-              init(instance) {
-                optionsRef.current.onReady?.(instance);
-              }
+        const result = liquidGL({
+          target: `[data-liquidgl-id="${instanceId}"]`,
+          snapshot: config?.snapshot ?? DEFAULT_CONFIG.snapshot,
+          resolution: config?.resolution ?? DEFAULT_CONFIG.resolution,
+          ...resolved,
+          on: {
+            init(instance) {
+              optionsRef.current.onReady?.(instance);
             }
-          });
-        } finally {
-          restoreInit();
-        }
+          }
+        });
         if (cancelled) {
           if (result) {
             const lensToClean = Array.isArray(result) ? result[0] : result;
@@ -386,19 +399,6 @@ function useLiquidGlass(options = {}) {
         }
         lens = Array.isArray(result) ? result[0] : result;
         lensRef.current = lens;
-        const renderer = lens.renderer;
-        if (renderer && !renderer._captureSnapshotWrapped) {
-          renderer._captureSnapshotWrapped = true;
-          const originalCapture = renderer.captureSnapshot;
-          renderer.captureSnapshot = async function() {
-            const restore = applyComputedStylePolyfill();
-            try {
-              return await originalCapture.call(this);
-            } finally {
-              restore();
-            }
-          };
-        }
       } catch (err) {
         console.error("liquidgl-react: Failed to initialize glass effect.", err);
       }
@@ -407,6 +407,7 @@ function useLiquidGlass(options = {}) {
     });
     return () => {
       cancelled = true;
+      disablePolyfill();
       if (lensRef.current) {
         destroyLens(lensRef.current);
         destroyRendererIfEmpty();
