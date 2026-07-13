@@ -1,316 +1,264 @@
-# liquidgl-react
+# liquidGL – Ultra-light glassmorphism for the web
 
-React components for [liquidGL](https://liquidgl.naughtyduk.com) — ultra-light glassmorphism for the web.
+<a href="https://liquidgl.naughtyduk.com"><img src="/assets/liquidGlass-promo.gif" alt="liquidGL" style="width: 100%"/></a>
 
-Turn any React component into a beautiful, refracted glass pane with a single import.
+**v1.0.6**
 
-## Installation
+> [!IMPORTANT]
+> `liquidGL` is now available on npm: `npm install liquid-gl`. The `package/` directory contains the npm package source and is not required when using the CDN/browser script.
 
-```bash
-npm install liquidgl-react
-```
+> [!NOTE]
+> `liquidGL` is free to use for both non-commercial and commercial purposes. _BETA_ has now ended and the library is now ready for production use.
 
-> **Peer dependencies:** `react >= 18.0.0` and `react-dom >= 18.0.0`
+`liquidGL` turns any fixed-position element into a perfectly refracted, glossy "glass pane" rendered in WebGL.
 
-## Quick Start
+<a href="https://liquidgl.naughtyduk.com" target="_blank" rel="noopener noreferrer"><strong>TRY IT OUT</strong></a>
 
-```tsx
-import { LiquidGlass } from 'liquidgl-react';
+<a href="https://liquidgl.naughtyduk.com/demos/demo-1.html" target="_blank" rel="noopener noreferrer"><strong>DEMO 1</strong></a> | <a href="https://liquidgl.naughtyduk.com/demos/demo-2.html" target="_blank" rel="noopener noreferrer"><strong>DEMO 2</strong></a> | <a href="https://liquidgl.naughtyduk.com/demos/demo-3.html" target="_blank" rel="noopener noreferrer"><strong>DEMO 3</strong></a> | <a href="https://liquidgl.naughtyduk.com/demos/demo-4.html" target="_blank" rel="noopener noreferrer"><strong>DEMO 4</strong></a> | <a href="https://liquidgl.naughtyduk.com/demos/demo-5.html" target="_blank" rel="noopener noreferrer"><strong>DEMO 5</strong></a>
 
-function App() {
-  return (
-    <LiquidGlass className="card" style={{ width: 400, height: 300 }}>
-      <h2>Glass Card</h2>
-      <p>This content sits on top of a refracted glass pane.</p>
-    </LiquidGlass>
-  );
-}
-```
+## Overview
 
-## Features
+`liquidGL` recreates Apple's "Liquid Glass" aesthetic in the browser with an ultra-light WebGL shader. It turns any DOM element into a beautiful, refracting glass pane. To overcome WebGL's security limitations on reading live screen pixels, `liquidGL` uses an innovative offscreen rendering technique. This allows it to refract dynamic content like videos, text animations, and more in real-time, delivering a smooth and interactive experience.
 
-- 🧩 **Polymorphic** — render as `<div>`, `<button>`, `<nav>`, or any HTML element
-- 🎛️ **Fully customizable** — control refraction, bevel, frost, specular, tilt, and more
-- 🎨 **Presets** — five built-in styles: `default`, `alien`, `pulse`, `frost`, `edge`
-- 🪝 **Hook API** — `useLiquidGlass()` for advanced imperative usage
-- 📦 **SSR safe** — works with Next.js App Router and other SSR frameworks
-- 🔧 **TypeScript first** — full type inference, including polymorphic `as` prop
-- ♻️ **Proper cleanup** — lenses and WebGL resources are freed on unmount
+### Key Features
+
+| Feature                                | Supported | Feature                  | Supported |
+| :------------------------------------- | :-------: | :----------------------- | :-------: |
+| Real-time Refraction (static content)  |    ✅     | Magnification Control    |    ✅     |
+| Real-time Refraction (video)           |    ✅     | Dynamic Element Support  |    ✅     |
+| Real-time Refraction (text animations) |    ✅     | GSAP-Ready Animations    |    ✅     |
+| Real-time Refraction (CSS animations)  |    ❌     | Lightweight & Performant |    ✅     |
+| Adjustable Bevel                       |    ✅     | Seamless Scroll Sync     |    ✅     |
+| Frosted Glass Effect                   |    ✅     | Auto-Resize Handling     |    ✅     |
+| Dynamic Shadows                        |    ✅     | Auto Video Refraction    |    ✅     |
+| Specular Highlights                    |    ✅     | Animate Lenses           |    ✅     |
+| Interactive Tilt Effect                |    ✅     | `on.init` Callback       |    ✅     |
 
 ---
 
-## API Reference
+## Prerequisites
 
-### `<LiquidGlass>`
+Add **both** of the following scripts before you initialise `liquidGL()` (normally at the end of the `<body>`):
 
-The main component. Renders a glass-effect pane with any children inside.
+```html
+<!-- html2canvas – DOM snapshotter (required) -->
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+  defer
+></script>
 
-```tsx
-<LiquidGlass
-  // Polymorphic — render as any element
-  as="section"
-  
-  // Glass effect options
-  refraction={0.05}
-  bevelDepth={0.1}
-  bevelWidth={0.15}
-  frost={2}
-  shadow
-  specular
-  tilt
-  tiltFactor={10}
-  magnify={1.2}
-  reveal="fade"
-  
-  // Or use a preset (explicit options override preset values)
-  preset="frost"
-  
-  // Lifecycle callback
-  onReady={(lens) => console.log('Glass initialized!', lens)}
-  
-  // All native HTML props are supported and type-checked
-  className="my-card"
-  style={{ width: 400, height: 300 }}
-  onClick={() => console.log('clicked')}
->
-  <p>Content</p>
-</LiquidGlass>
+<!-- liquidGL.js – the library itself -->
+<script src="/scripts/liquidGL.js" defer></script>
 ```
 
-#### Props
-
-| Prop          | Type                          | Default   | Description                                          |
-| ------------- | ----------------------------- | --------- | ---------------------------------------------------- |
-| `as`          | `React.ElementType`           | `'div'`   | HTML element or component to render                  |
-| `preset`      | `PresetName`                  | —         | Named preset (`default`, `alien`, `pulse`, `frost`, `edge`) |
-| `refraction`  | `number`                      | `0.01`    | Base refraction offset (0–1)                         |
-| `bevelDepth`  | `number`                      | `0.08`    | Edge bevel depth (0–1)                               |
-| `bevelWidth`  | `number`                      | `0.15`    | Bevel zone width fraction (0–1)                      |
-| `frost`       | `number`                      | `0`       | Blur radius in px. 0 = crystal clear                 |
-| `shadow`      | `boolean`                     | `true`    | Enable drop-shadow under the pane                    |
-| `specular`    | `boolean`                     | `true`    | Enable animated specular highlights                  |
-| `tilt`        | `boolean`                     | `false`   | Enable 3D tilt on hover                              |
-| `tiltFactor`  | `number`                      | `5`       | Tilt intensity in degrees (0–25)                     |
-| `magnify`     | `number`                      | `1`       | Magnification (0.001–3.0)                            |
-| `reveal`      | `'none' \| 'fade'`            | `'fade'`  | Reveal animation type                                |
-| `onReady`     | `(lens: LiquidGlassLens) => void` | —     | Callback when the glass effect is ready              |
-| `children`    | `ReactNode`                   | —         | Content inside the glass pane                        |
-| `ref`         | `React.Ref`                   | —         | Forwarded ref to the underlying element              |
-| `...htmlProps`| —                             | —         | All native props for the rendered element            |
+> `html2canvas` provides the high-resolution snapshot of the page background that `liquidGL` refracts. The library will throw if either dependency is missing.
 
 ---
 
-### `useLiquidGlass(options?)`
+## Quick start
 
-Low-level hook for applying the glass effect to any element via a ref.
+Set up your HTML structure first. You will have a `target` element that will receive the glass effect, and a child element for your content (excluded from glass effect).
 
-```tsx
-import { useLiquidGlass } from 'liquidgl-react';
-
-function CustomPanel() {
-  const ref = useLiquidGlass<HTMLDivElement>({
-    refraction: 0.05,
-    frost: 2,
-    preset: 'frost',
-    onReady: (lens) => {
-      // Access the lens instance for imperative control
-      console.log('Lens ready:', lens);
-    },
-  });
-
-  return (
-    <div ref={ref} className="panel">
-      Custom glass panel
+```html
+<!-- Example HTML structure -->
+<body>
+  <!-- Target (glassified) -->
+  <div class="liquidGL">
+    <!-- Content -->
+    <div class="content">
+      <img src="/example.svg" alt="Alt Text" />
+      <p>This example text content will appear on top of the glass.</p>
     </div>
-  );
-}
-```
-
-#### Parameters
-
-| Param     | Type                   | Description                              |
-| --------- | ---------------------- | ---------------------------------------- |
-| `options` | `UseLiquidGlassOptions` | Glass options + `preset` + `onReady`     |
-
-#### Returns
-
-`React.RefObject<T | null>` — attach this to the target element.
-
----
-
-### `<LiquidGlassProvider>`
-
-Context provider for shared renderer configuration.
-
-```tsx
-import { LiquidGlassProvider, LiquidGlass } from 'liquidgl-react';
-
-function App() {
-  return (
-    <LiquidGlassProvider snapshot=".main-content" resolution={1.5}>
-      <LiquidGlass>Card 1</LiquidGlass>
-      <LiquidGlass>Card 2</LiquidGlass>
-    </LiquidGlassProvider>
-  );
-}
-```
-
-| Prop         | Type     | Default   | Description                                  |
-| ------------ | -------- | --------- | -------------------------------------------- |
-| `snapshot`   | `string` | `'body'`  | CSS selector for the element to snapshot      |
-| `resolution` | `number` | `2.0`     | Snapshot resolution (0.1–3.0)                |
-| `children`   | `ReactNode` | —      | Child components                              |
-
----
-
-### `PRESETS`
-
-Object of built-in preset configurations you can reference or extend.
-
-```tsx
-import { PRESETS } from 'liquidgl-react';
-
-console.log(PRESETS.frost);
-// { refraction: 0, bevelDepth: 0.035, bevelWidth: 0.119, frost: 0.9, shadow: true, specular: true }
-```
-
-| Preset    | Description                                       |
-| --------- | ------------------------------------------------- |
-| `default` | Balanced glass with subtle frost and specular      |
-| `alien`   | Strong refraction + deep bevel — sci-fi aesthetic  |
-| `pulse`   | Flat pane with wide bevel — ideal for UI pulses    |
-| `frost`   | Soft diffused privacy-glass effect                 |
-| `edge`    | Thin bevel with bright rim highlights              |
-
----
-
-## Examples
-
-### Glass Card
-
-```tsx
-<LiquidGlass
-  preset="default"
-  className="card"
-  style={{
-    position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: 400,
-    height: 300,
-    borderRadius: 24,
-    zIndex: 100,
-  }}
->
-  <div style={{ position: 'relative', zIndex: 3, padding: 24 }}>
-    <h2>Glass Card</h2>
-    <p>Beautiful refracted content</p>
   </div>
-</LiquidGlass>
+</body>
 ```
 
-### Glass Button
+> Make sure that your `target` element has a high z-index so that it sits over your page content. Any content with a higher z-index than the `target` will be excluded from the lens, i.e a modal video player that you don't want to stain the lens.
 
-```tsx
-<LiquidGlass
-  as="button"
-  preset="edge"
-  tilt
-  tiltFactor={8}
-  onClick={() => alert('Clicked!')}
-  style={{
-    position: 'fixed',
-    bottom: 40,
-    right: 40,
-    padding: '16px 32px',
-    borderRadius: 16,
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: 16,
-    zIndex: 100,
-  }}
->
-  <span style={{ position: 'relative', zIndex: 3 }}>Click Me</span>
-</LiquidGlass>
+Next, initialise the library with the selector for your target element.
+
+```html
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const glassEffect = liquidGL({
+      snapshot: "body", // The area used for refraction, <body> recommended and default
+      target: ".liquidGL", // CSS selector for the element(s) to glass-ify
+      resolution: 2.0, // The quality of the snapshot
+      refraction: 0.01, // Base refraction strength (0–1)
+      bevelDepth: 0.08, // Intensity of the edge bevel (0–1)
+      bevelWidth: 0.15, // Width of the bevel as a proportion of the element (0–1)
+      frost: 0, // Subtle blur radius in px. 0 = crystal clear
+      shadow: true, // Adds a soft drop-shadow under the pane
+      specular: true, // Animated light highlights (slightly more GPU)
+      reveal: "fade", // Reveal animation
+      tilt: false, // Whether tilt on hover is enabled
+      tiltFactor: 5, // If tilt is enabled, how much tilt
+      magnify: 1, // Magnification of lens content
+      on: {
+        init(instance) {
+          // The `init` callback fires once liquidGL has taken its snapshot
+          // and rendered the first frame. It's the ideal place to hide or
+          // prepare elements for reveal animations (e.g. with GSAP, ScrollTrigger)
+          // because it ensures the content is visible to the snapshot before
+          // you hide it from the user.
+          console.log("liquidGL ready!", instance);
+        },
+      },
+    });
+  });
+</script>
 ```
 
-### Glass Navigation Bar
+---
 
-```tsx
-<LiquidGlass
-  as="nav"
-  frost={1}
-  shadow
-  style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 64,
-    zIndex: 1000,
-    display: 'flex',
-    alignItems: 'center',
-    padding: '0 24px',
-  }}
->
-  <div style={{ position: 'relative', zIndex: 3, display: 'flex', gap: 24 }}>
-    <a href="/">Home</a>
-    <a href="/about">About</a>
-    <a href="/contact">Contact</a>
-  </div>
-</LiquidGlass>
+## Dynamic Rendering
+
+`liquidGL` can refract dynamic content like animations in real-time. To make this work, you must "register" any dynamic elements that will intersect with your glass pane. This tells `liquidGL` to monitor them and update the texture when they change.
+
+> **Note:** Videos are automatically detected and do not need to be registered.
+
+Register dynamic elements _after_ initialising `liquidGL()` but _before_ calling `liquidGL.syncWith()` (if used). You can register elements using a CSS selector string or by passing an array of DOM elements.
+
+```javascript
+// After initialising liquidGL...
+const glassEffect = liquidGL({
+  target: ".liquidGL",
+  // ... other options
+});
+
+// Register an element by its CSS selector
+liquidGL.registerDynamic(".my-animated-element");
+
+// Register multiple elements (e.g., from a GSAP SplitText animation)
+const mySplitText = SplitText.create(".my-text", { type: "lines" });
+liquidGL.registerDynamic(mySplitText.lines); // Pass the array of line elements
 ```
+
+---
+
+## Optionally sync with Smooth Scrolling Libraries
+
+`liquidGL` includes a `syncWith()` helper to automatically integrate with popular smooth-scrolling libraries like Lenis and Locomotive Scroll. It handles the render loop synchronization for you.
+
+> Simply call `liquidGL.syncWith()` after initialising `liquidGL`.
+
+```html
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // First, initialise liquidGL
+    const glassEffect = liquidGL({
+      target: ".liquidGL",
+      // ... other options
+    });
+
+    // Sync with scrolling libraries. This auto-detects libraries like
+    // Lenis or Locomotive Scroll and returns their instances if found.
+    const { lenis, locomotiveScroll } = liquidGL.syncWith();
+
+    // You can now use the 'lenis' or 'locomotiveScroll' instances if needed.
+  });
+</script>
+```
+
+> Make sure to include the scroll library scripts (e.g., Lenis, GSAP) before your main script. The `syncWith()` helper must be called **after** `liquidGL()` has been called.
+
+---
+
+## Parameters
+
+| Option       | Type     | Default       | Description                                                                                      |
+| ------------ | -------- | ------------- | ------------------------------------------------------------------------------------------------ |
+| `target`     | string   | `'.liquidGL'` | **Required.** CSS selector for the element(s) to glassify.                                       |
+| `snapshot`   | string   | `'body'`      | CSS selector for the element to snapshot.                                                        |
+| `resolution` | number   | `2.0`         | Resolution of the background snapshot (clamped 0.1–3.0). Higher is sharper but uses more memory. |
+| `refraction` | number   | `0.01`        | Base refraction offset applied across the pane (0–1).                                            |
+| `bevelDepth` | number   | `0.08`        | Additional refraction on the edge to simulate depth (0–1).                                       |
+| `bevelWidth` | number   | `0.15`        | Width of the bevel zone as a fraction of the shortest side (0–1).                                |
+| `frost`      | number   | `0`           | Blur radius in pixels for a frosted look. `0` is clear.                                          |
+| `shadow`     | boolean  | `true`        | Toggles a subtle drop-shadow under the pane.                                                     |
+| `specular`   | boolean  | `true`        | Enables animated specular highlights that move with time.                                        |
+| `reveal`     | string   | `'fade'`      | Reveal animation.<br>- `'none'`: Renders immediately.<br>- `'fade'`: Smoothly fades in.          |
+| `tilt`       | boolean  | `false`       | Enables 3D tilt interaction on cursor movement.                                                  |
+| `tiltFactor` | number   | `5`           | Depth of the tilt in degrees (0–25 recommended).                                                 |
+| `magnify`    | number   | `1`           | Magnification factor of the lens (clamped 0.001–3.0). `1` is no magnification.                   |
+| `on.init`    | function | `—`           | Callback that runs once the first render completes. Receives the lens instance.                  |
+
+> The `target` parameter is required; all others are optional.
+
+---
+
+## Presets
+
+Below are some ready-made configurations you can copy-paste. Feel free to tweak values to suit your design.
+
+| Name        | Settings                                                                                               | Purpose                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| **Default** | `{ refraction: 0, bevelDepth: 0.052, bevelWidth: 0.211, frost: 2, shadow: true, specular: true }`      | Balanced default used in the demo.                      |
+| **Alien**   | `{ refraction: 0.073, bevelDepth: 0.2, bevelWidth: 0.156, frost: 2, shadow: true, specular: false }`   | Strong refraction & deep bevel for a sci-fi look.       |
+| **Pulse**   | `{ refraction: 0.03, bevelDepth: 0, bevelWidth: 0.273, frost: 0, shadow: false, specular: false }`     | Flat pane with wide bevel—great for pulsing UI effects. |
+| **Frost**   | `{ refraction: 0, bevelDepth: 0.035, bevelWidth: 0.119, frost: 0.9, shadow: true, specular: true }`    | Softly diffused, privacy-glass style.                   |
+| **Edge**    | `{ refraction: 0.047, bevelDepth: 0.136, bevelWidth: 0.076, frost: 2, shadow: true, specular: false }` | Thin bevel and bright rim highlights.                   |
+
+---
+
+## FAQ
+
+| Question                                                                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                         |
+| :----------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Is there a resize handler?                                               | Yes resize is handled in the library and debounced to 250ms for performance.                                                                                                                                                                                                                                                                                                                                   |
+| Does the effect work on mobile?                                          | Yes the library handles all 3 versions of WebGL and provides a frosted CSS `backdrop-filter` as a backup for older devices.                                                                                                                                                                                                                                                                                    |
+| I have a preloader, how should I initialise `liquidGL()`?                | Add the `data-liquid-ignore` attribute to your preloader's top-level container to exclude it from the snapshot. You can then call `liquidGL()` inside a `DOMContentLoaded` listener as you normally would.                                                                                                                                                                                                     |
+| What is the correct way to use `liquidGL` with page animations?          | Lets say you have a preloader, above the fold intro animations and scroll animations on your page. You would:<br><br>1) set the `data-liquid-ignore` attribute on your preloader<br>2) animate your preloader and set up your initial animation states<br>3) then call `liquidGL();`<br>4) optionally, in the `on.init();` callback, you can run post snapshot scripts, such as animating the `target` element |
+| Can I use `liquidGL` on multiple elements?                               | Yes, any element which has the class declared as your `target` will be glassified. Note **all elements must use the same `z-index`** due to shared canvas optimisations, if you use different `z-index` values for multiple targets, the highest value will be used by `liquidGL`.                                                                                                                             |
+| Will the library exceed WebGL contexts or have other performance issues? | No, the library uses a shared canvas for all instances, we have tested up to 30 elements on one page and we were not able to cause performance problems or crashes.                                                                                                                                                                                                                                            |
+| Are there any animation limitations?                                     | It depends on what you're trying to do, rotation and scale are expensive CPU/GPU processes, additionally `shadow` `specular` and `tilt` should be used with care when you have lots of instances or complex animations as they can clog the render pipeline.                                                                                                                                                   |
 
 ---
 
 ## Important Notes
 
-- The glass effect element should have a **`position: fixed`** (or high z-index) to sit above the page content it refracts.
-- Content inside the glass pane should have **`position: relative; z-index: 3`** to appear on top of the lens.
-- **Border-radius** is automatically inherited — the refraction respects rounded corners.
-- The **`snapshot`** defaults to `<body>`. For better performance on complex pages, snapshot a smaller container.
-- The initial capture is **asynchronous**. The `onReady` callback fires when the glass is actually visible.
-- The library uses a **shared WebGL canvas** — multiple `<LiquidGlass>` instances are efficient.
+- For dynamic content to be refracted in real-time, you must register the element(s) with `liquidGL.registerDynamic()`. It is crucial to set the initial state of your animations **before** calling `liquidGL()` to ensure they are captured correctly.
+- The library ignores `fixed` position elements, this is to prevent a known bug between html2canvas and mobile browsers from surfacing which can prevent the snapshot from running. This is a safety net that shouldn't interfere with your use of the library.
+- You can have multiple instances on one page **but they must share the same `z-index` value**. If you specify different `z-index` values, `liquidGL` will use the highest `z-index` for all elements with the `target` selector. This is because the effect uses a shared canvas to prevent WebGL context issues, there is no work around to this unfortunately.
+- To improve performance on complex pages, you can snapshot a smaller, specific element like a background container instead of the whole page. Use the `snapshot` option with a CSS selector (e.g., `snapshot: '.my-background'`). This reduces texture memory and improves performance.
+- The initial capture is asynchronous. Call `liquidGL()` inside a `DOMContentLoaded` or `load` handler to ensure content is available to the snapshot.
+- Extremely long documents can exceed GPU texture limits, causing memory or performance issues. Consider segmenting very long pages (see source) or reducing the `resolution` parameter.
+- The `shadow` and `tilt` effects create new stacking layers behind the `target` element. The `shadow` is placed at `z-index - 2` and the `tilt` helper canvas is placed at `z-index - 1`. Ensure your `z-index` values leave room for these layers to prevent clipping or overflow issues.
+- As with all WebGL effects, any **image** content inside the `target` element must have permissive `Access-Control-Allow-Origin` headers set to prevent CORS issues.
 
-## SSR / Next.js
+---
 
-The package is fully SSR-safe:
-- The `'use client'` directive is included in the built output
-- The WebGL library is dynamically imported (never evaluated on the server)
-- Components render their children normally during SSR — the glass effect activates on hydration
+## Browser Support
 
-```tsx
-// Works in Next.js App Router
-import { LiquidGlass } from 'liquidgl-react';
+The `liquidGL` library is compatible with all WebGL enabled browsers on desktop, tablet and mobile devices.
 
-export default function Page() {
-  return (
-    <LiquidGlass preset="frost">
-      <p>Server-rendered content with client-side glass effect</p>
-    </LiquidGlass>
-  );
-}
-```
+> [!NOTE]  
+> Performance varies between browsers, specifically Safari can be unstable when the liquid element(s) are more than 50% of the viewport width or height. Practical use issues are rare, but make sure to test on your target devices thoroughly.
 
-## TypeScript
+| Browser        | Supported |
+| :------------- | :-------: |
+| Google Chrome  |    Yes    |
+| Safari         |    Yes    |
+| Firefox        |    Yes    |
+| Microsoft Edge |    Yes    |
 
-All exports are fully typed. The polymorphic `as` prop provides complete type inference:
+---
 
-```tsx
-// TypeScript knows this is a <button> — onClick, disabled, type etc. are available
-<LiquidGlass as="button" onClick={(e) => {
-  e.currentTarget; // HTMLButtonElement ✅
-}} disabled>
-  Submit
-</LiquidGlass>
-```
+## Other
 
-Import types directly:
+**Exclude elements**
 
-```tsx
-import type { LiquidGlassOptions, PresetName, LiquidGlassLens } from 'liquidgl-react';
-```
+> You can set elements to be ignored by the refraction using `data-liquid-ignore`. Add this attribute on the parent container of the element you wish to exclude.
+
+**Content Visibility**
+
+> It is recommended to use `z-index: 3;` on the content inside your target element to make it sit on top of the lens. You can also combine this with `mix-blend-mode: difference;` for better legibility.
+
+**Border-radius**
+
+> `liquidGL` automatically inherits the `border-radius` of the `target` element, ensuring the refraction respects rounded corners without any extra configuration. If you animate the `border-radius` of your `target` element i.e on scroll, the bevel will animate in real time to remain in sync.
+
+---
 
 ## License
 
