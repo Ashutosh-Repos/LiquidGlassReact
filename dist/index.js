@@ -163,6 +163,96 @@ var _nextId = 0;
 function generateId() {
   return `lgl-${++_nextId}`;
 }
+var convertOklabToRGB = (L, a, b, alpha) => {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+  const l = l_ * l_ * l_;
+  const m = m_ * m_ * m_;
+  const s = s_ * s_ * s_;
+  let r_val = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  let g_val = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  let b_val = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+  const gammaEncode = (c) => {
+    return c >= 31308e-7 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : 12.92 * c;
+  };
+  r_val = Math.round(Math.max(0, Math.min(1, gammaEncode(r_val))) * 255);
+  g_val = Math.round(Math.max(0, Math.min(1, gammaEncode(g_val))) * 255);
+  b_val = Math.round(Math.max(0, Math.min(1, gammaEncode(b_val))) * 255);
+  return alpha !== void 0 ? `rgba(${r_val}, ${g_val}, ${b_val}, ${alpha})` : `rgb(${r_val}, ${g_val}, ${b_val})`;
+};
+var convertModernColorToRGB = (colorStr) => {
+  if (!colorStr || typeof colorStr !== "string") return colorStr;
+  if (colorStr.includes("oklab")) {
+    const match = colorStr.match(/(?:oklab|color\(oklab)\s+([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)%?(?:\s*\/\s*([0-9.-]+)%?)?/i) || colorStr.match(/oklab\(\s*([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)%?(?:\s*\/\s*([0-9.-]+)%?)?\s*\)/i);
+    if (match) {
+      let L = parseFloat(match[1]);
+      if (match[1].includes("%")) L /= 100;
+      const a = parseFloat(match[2]);
+      const b = parseFloat(match[3]);
+      let alpha = void 0;
+      if (match[4]) {
+        alpha = parseFloat(match[4]);
+        if (match[4].includes("%")) alpha /= 100;
+      }
+      return convertOklabToRGB(L, a, b, alpha);
+    }
+  }
+  if (colorStr.includes("oklch")) {
+    const match = colorStr.match(/(?:oklch|color\(oklch)\s+([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)(?:\s*\/\s*([0-9.-]+)%?)?/i) || colorStr.match(/oklch\(\s*([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)(?:\s*\/\s*([0-9.-]+)%?)?\s*\)/i);
+    if (match) {
+      let L = parseFloat(match[1]);
+      if (match[1].includes("%")) L /= 100;
+      const C = parseFloat(match[2]);
+      const H = parseFloat(match[3]);
+      let alpha = void 0;
+      if (match[4]) {
+        alpha = parseFloat(match[4]);
+        if (match[4].includes("%")) alpha /= 100;
+      }
+      const hRad = H * Math.PI / 180;
+      const a = C * Math.cos(hRad);
+      const b = C * Math.sin(hRad);
+      return convertOklabToRGB(L, a, b, alpha);
+    }
+  }
+  if (colorStr.includes("oklab") || colorStr.includes("oklch") || colorStr.includes("lab(")) {
+    return "rgba(0, 0, 0, 0)";
+  }
+  return colorStr;
+};
+function applyComputedStylePolyfill() {
+  if (typeof window === "undefined") return () => {
+  };
+  const originalGetComputedStyle = window.getComputedStyle;
+  window.getComputedStyle = function(el, pseudo) {
+    const style = originalGetComputedStyle.call(this, el, pseudo);
+    return new Proxy(style, {
+      get(target, prop) {
+        if (typeof prop === "string") {
+          if (prop === "getPropertyValue") {
+            return function(propertyName) {
+              const val3 = target.getPropertyValue(propertyName);
+              return convertModernColorToRGB(val3);
+            };
+          }
+          const val2 = target[prop];
+          if (typeof val2 === "string") {
+            return convertModernColorToRGB(val2);
+          }
+        }
+        const val = Reflect.get(target, prop);
+        if (typeof val === "function") {
+          return val.bind(target);
+        }
+        return val;
+      }
+    });
+  };
+  return () => {
+    window.getComputedStyle = originalGetComputedStyle;
+  };
+}
 function resolveOptions(options) {
   const preset = options.preset ? PRESETS[options.preset] : void 0;
   return {
@@ -250,6 +340,19 @@ function useLiquidGlass(options = {}) {
         }
         lens = Array.isArray(result) ? result[0] : result;
         lensRef.current = lens;
+        const renderer = lens.renderer;
+        if (renderer && !renderer._captureSnapshotWrapped) {
+          renderer._captureSnapshotWrapped = true;
+          const originalCapture = renderer.captureSnapshot;
+          renderer.captureSnapshot = async function() {
+            const restore = applyComputedStylePolyfill();
+            try {
+              return await originalCapture.call(this);
+            } finally {
+              restore();
+            }
+          };
+        }
       } catch (err) {
         console.error("liquidgl-react: Failed to initialize glass effect.", err);
       }

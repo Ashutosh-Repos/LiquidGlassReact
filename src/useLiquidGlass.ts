@@ -43,6 +43,121 @@ function generateId(): string {
   return `lgl-${++_nextId}`;
 }
 
+const convertOklabToRGB = (L: number, a: number, b: number, alpha?: number) => {
+  // oklab -> linear LMS
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  
+  const l = l_ * l_ * l_;
+  const m = m_ * m_ * m_;
+  const s = s_ * s_ * s_;
+  
+  let r_val = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  let g_val = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  let b_val = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+  
+  const gammaEncode = (c: number) => {
+    return c >= 0.0031308 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : 12.92 * c;
+  };
+  
+  r_val = Math.round(Math.max(0, Math.min(1, gammaEncode(r_val))) * 255);
+  g_val = Math.round(Math.max(0, Math.min(1, gammaEncode(g_val))) * 255);
+  b_val = Math.round(Math.max(0, Math.min(1, gammaEncode(b_val))) * 255);
+  
+  return alpha !== undefined ? `rgba(${r_val}, ${g_val}, ${b_val}, ${alpha})` : `rgb(${r_val}, ${g_val}, ${b_val})`;
+};
+
+const convertModernColorToRGB = (colorStr: string): string => {
+  if (!colorStr || typeof colorStr !== 'string') return colorStr;
+  
+  // Parse oklab(L a b) or oklab(L a b / alpha) or color(oklab L a b / alpha)
+  if (colorStr.includes('oklab')) {
+    const match = colorStr.match(/(?:oklab|color\(oklab)\s+([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)%?(?:\s*\/\s*([0-9.-]+)%?)?/i) ||
+                  colorStr.match(/oklab\(\s*([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)%?(?:\s*\/\s*([0-9.-]+)%?)?\s*\)/i);
+    if (match) {
+      let L = parseFloat(match[1]);
+      if (match[1].includes('%')) L /= 100;
+      const a = parseFloat(match[2]);
+      const b = parseFloat(match[3]);
+      let alpha: number | undefined = undefined;
+      if (match[4]) {
+        alpha = parseFloat(match[4]);
+        if (match[4].includes('%')) alpha /= 100;
+      }
+      return convertOklabToRGB(L, a, b, alpha);
+    }
+  }
+  
+  // Parse oklch(L C H) or oklch(L C H / alpha) or color(oklch L C H / alpha)
+  if (colorStr.includes('oklch')) {
+    const match = colorStr.match(/(?:oklch|color\(oklch)\s+([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)(?:\s*\/\s*([0-9.-]+)%?)?/i) ||
+                  colorStr.match(/oklch\(\s*([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)(?:\s*\/\s*([0-9.-]+)%?)?\s*\)/i);
+    if (match) {
+      let L = parseFloat(match[1]);
+      if (match[1].includes('%')) L /= 100;
+      const C = parseFloat(match[2]);
+      const H = parseFloat(match[3]);
+      let alpha: number | undefined = undefined;
+      if (match[4]) {
+        alpha = parseFloat(match[4]);
+        if (match[4].includes('%')) alpha /= 100;
+      }
+      
+      const hRad = (H * Math.PI) / 180;
+      const a = C * Math.cos(hRad);
+      const b = C * Math.sin(hRad);
+      return convertOklabToRGB(L, a, b, alpha);
+    }
+  }
+  
+  // Fallback block to strip unsupported oklch / oklab / lab functions to transparent
+  if (colorStr.includes('oklab') || colorStr.includes('oklch') || colorStr.includes('lab(')) {
+    return 'rgba(0, 0, 0, 0)';
+  }
+  
+  return colorStr;
+};
+
+/** Temporarily polyfills window.getComputedStyle to translate modern oklch/oklab colors. */
+function applyComputedStylePolyfill(): () => void {
+  if (typeof window === 'undefined') return () => {};
+  
+  const originalGetComputedStyle = window.getComputedStyle;
+  
+  window.getComputedStyle = function (el, pseudo) {
+    const style = originalGetComputedStyle.call(this, el, pseudo);
+    
+    return new Proxy(style, {
+      get(target, prop) {
+        if (typeof prop === 'string') {
+          if (prop === 'getPropertyValue') {
+            return function (propertyName: string) {
+              const val = target.getPropertyValue(propertyName);
+              return convertModernColorToRGB(val);
+            };
+          }
+          
+          const val = (target as any)[prop];
+          if (typeof val === 'string') {
+            return convertModernColorToRGB(val);
+          }
+        }
+        
+        const val = Reflect.get(target, prop);
+        if (typeof val === 'function') {
+          return val.bind(target);
+        }
+        return val;
+      }
+    });
+  };
+  
+  return () => {
+    window.getComputedStyle = originalGetComputedStyle;
+  };
+}
+
 /**
  * Resolve the final set of glass options by layering:
  *   1. Library defaults
@@ -206,6 +321,21 @@ export function useLiquidGlass<T extends HTMLElement = HTMLDivElement>(
             Array.isArray(result) ? result[0] : result
           ) as unknown as LiquidGlassLensInternal;
           lensRef.current = lens;
+
+          // Temporarily wrap the snapshot capture function to polyfill getComputedStyle
+          const renderer = lens.renderer;
+          if (renderer && !(renderer as any)._captureSnapshotWrapped) {
+            (renderer as any)._captureSnapshotWrapped = true;
+            const originalCapture = renderer.captureSnapshot;
+            renderer.captureSnapshot = async function (this: any) {
+              const restore = applyComputedStylePolyfill();
+              try {
+                return await originalCapture.call(this);
+              } finally {
+                restore();
+              }
+            };
+          }
         } catch (err) {
           console.error('liquidgl-react: Failed to initialize glass effect.', err);
         }
