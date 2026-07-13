@@ -185,43 +185,39 @@ var convertOklabToRGB = (L, a, b, alpha) => {
 };
 var convertModernColorToRGB = (colorStr) => {
   if (!colorStr || typeof colorStr !== "string") return colorStr;
-  if (colorStr.includes("oklab")) {
-    const match = colorStr.match(/(?:oklab|color\(oklab)\s+([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)%?(?:\s*\/\s*([0-9.-]+)%?)?/i) || colorStr.match(/oklab\(\s*([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)%?(?:\s*\/\s*([0-9.-]+)%?)?\s*\)/i);
-    if (match) {
-      let L = parseFloat(match[1]);
-      if (match[1].includes("%")) L /= 100;
-      const a = parseFloat(match[2]);
-      const b = parseFloat(match[3]);
-      let alpha = void 0;
-      if (match[4]) {
-        alpha = parseFloat(match[4]);
-        if (match[4].includes("%")) alpha /= 100;
-      }
-      return convertOklabToRGB(L, a, b, alpha);
+  let processed = colorStr;
+  const oklabRegex = /(?:color\(oklab\s+|oklab\()([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)%?(?:\s*\/\s*([0-9.-]+)%?)?\)/gi;
+  processed = processed.replace(oklabRegex, (match, p1, p2, p3, p4) => {
+    let L = parseFloat(p1);
+    if (p1.includes("%")) L /= 100;
+    const a = parseFloat(p2);
+    const b = parseFloat(p3);
+    let alpha = void 0;
+    if (p4) {
+      alpha = parseFloat(p4);
+      if (p4.includes("%")) alpha /= 100;
     }
-  }
-  if (colorStr.includes("oklch")) {
-    const match = colorStr.match(/(?:oklch|color\(oklch)\s+([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)(?:\s*\/\s*([0-9.-]+)%?)?/i) || colorStr.match(/oklch\(\s*([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)(?:\s*\/\s*([0-9.-]+)%?)?\s*\)/i);
-    if (match) {
-      let L = parseFloat(match[1]);
-      if (match[1].includes("%")) L /= 100;
-      const C = parseFloat(match[2]);
-      const H = parseFloat(match[3]);
-      let alpha = void 0;
-      if (match[4]) {
-        alpha = parseFloat(match[4]);
-        if (match[4].includes("%")) alpha /= 100;
-      }
-      const hRad = H * Math.PI / 180;
-      const a = C * Math.cos(hRad);
-      const b = C * Math.sin(hRad);
-      return convertOklabToRGB(L, a, b, alpha);
+    return convertOklabToRGB(L, a, b, alpha);
+  });
+  const oklchRegex = /(?:color\(oklch\s+|oklch\()([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)(?:\s*\/\s*([0-9.-]+)%?)?\)/gi;
+  processed = processed.replace(oklchRegex, (match, p1, p2, p3, p4) => {
+    let L = parseFloat(p1);
+    if (p1.includes("%")) L /= 100;
+    const C = parseFloat(p2);
+    const H = parseFloat(p3);
+    let alpha = void 0;
+    if (p4) {
+      alpha = parseFloat(p4);
+      if (p4.includes("%")) alpha /= 100;
     }
-  }
-  if (colorStr.includes("oklab") || colorStr.includes("oklch") || colorStr.includes("lab(")) {
-    return "rgba(0, 0, 0, 0)";
-  }
-  return colorStr;
+    const hRad = H * Math.PI / 180;
+    const a = C * Math.cos(hRad);
+    const b = C * Math.sin(hRad);
+    return convertOklabToRGB(L, a, b, alpha);
+  });
+  const labRegex = /(?:color\(lab\s+|lab\()([0-9.-]+)%?\s+([0-9.-]+)%?\s+([0-9.-]+)%?(?:\s*\/\s*([0-9.-]+)%?)?\)/gi;
+  processed = processed.replace(labRegex, "rgba(0, 0, 0, 0)");
+  return processed;
 };
 function applyComputedStylePolyfill() {
   if (typeof window === "undefined") return () => {
